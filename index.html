@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rundenuhr – Stoppuhr mit Auto-Runden</title>
+<meta name="theme-color" content="#0c2428">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rundenuhr">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--bg:#0c2428;--panel:#123a40;--deep:#0a1d21;--line:#1f5a63;--teal:#3fc1b8;--amber:#f2b84b;--ink:#f4f1ea;
+ --muted:#8fb0b3;--bad:#ff8a72;--mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace}
+*{box-sizing:border-box}
+html,body,button,.card{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button,#time,#lapnow,header,h2{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;min-height:100vh;
+ padding:max(16px,env(safe-area-inset-top)) 14px max(24px,env(safe-area-inset-bottom))}
+main{max-width:920px;margin:0 auto;display:grid;gap:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;margin:0;font-size:1.2rem;font-weight:650}
+.brand img{border-radius:9px}
+#clock{font-family:var(--mono);color:var(--muted);font-size:.9rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:16px;min-width:0}
+button{font:inherit;font-weight:600;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:11px 16px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--teal)}
+button:disabled{opacity:.35;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.primary{background:var(--teal);border-color:var(--teal);color:#06201f}
+.primary.run{background:var(--amber);border-color:var(--amber)}
+.display{text-align:center;padding:22px 14px 16px;background:var(--deep)}
+#time{font-family:var(--mono);font-size:3.2rem;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em;overflow-wrap:anywhere;line-height:1.1}
+#lapnow{font-family:var(--mono);color:var(--muted);font-size:.8rem;margin-top:8px;overflow-wrap:anywhere}
+.bar{height:6px;background:var(--line);border-radius:3px;margin:14px 0;overflow:hidden}
+#fill{height:100%;width:0;background:var(--amber)}
+.mini{display:flex;gap:10px;justify-content:center}
+.mini button{padding:8px 16px;font-size:.88rem}
+.panels{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:760px){.panels{grid-template-columns:1fr 1fr}}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.actions button{padding:18px 8px;font-size:1.1rem}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:end}
+.span2{grid-column:span 2}
+button.on{background:var(--amber);border-color:var(--amber);color:#06201f}
+.locked{opacity:.55}
+.lock{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 16px}
+.lock input{flex:1 1 140px;width:auto}
+.panels h2,.lapshead h2{margin:0 0 10px;font-size:.98rem;font-weight:650}
+.panels .card{display:grid;gap:10px;align-content:start}
+.panels button.primary{width:100%}
+label{display:grid;gap:3px;font-size:.76rem;color:var(--muted);min-width:0}
+input[type=text],input[type=number],input[type=password],select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--deep);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;min-width:0}
+.switch{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--ink);cursor:pointer}
+.switch input{width:18px;height:18px;accent-color:var(--teal)}
+.hint{font-size:.72rem;color:var(--muted);overflow-wrap:anywhere;margin:0}
+.lapshead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.lapshead h2{margin:0 0 8px}
+.lapshead button{padding:7px 14px;font-size:.85rem}
+#count{color:var(--amber);font-family:var(--mono);font-size:1rem;overflow-wrap:anywhere}
+#words{margin:2px 0 8px;color:var(--muted);font-size:.8rem;overflow-wrap:anywhere}
+.empty{color:var(--muted);text-align:center;margin:18px 0}
+ul{list-style:none;margin:0;padding:0}
+li{display:grid;gap:2px;padding:10px 0;border-top:1px solid var(--line)}
+li.more{display:block;color:var(--muted);font-size:.85rem;text-align:center}
+.no{font-family:var(--mono);font-size:.9rem;overflow-wrap:anywhere}
+.no i{margin-left:8px;font:normal .7rem "Segoe UI",system-ui,sans-serif;color:var(--teal)}
+.t,.tt{font-family:var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;font-size:.9rem}
+.tt{color:var(--muted);font-size:.78rem}
+.t.best{color:var(--teal);font-weight:700}
+.t.worst{color:var(--bad);font-weight:700}
+footer{text-align:center;color:var(--muted);font-size:.78rem}
+kbd{font-family:var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:22px;padding:20px;width:min(92vw,360px);margin:auto}
+dialog::backdrop{background:rgba(5,12,14,.7)}
+dialog form{display:grid;gap:12px}
+dialog h2{margin:0;font-size:1.05rem}
+.row2{display:flex;gap:10px}.row2 button{flex:1}
+</style>
+</head>
+<body>
+<main>
+ <header>
+  <h1 class="brand"><img src="icons/icon.svg" alt="" width="36" height="36">Rundenuhr</h1>
+  <div id="clock" aria-label="Aktuelle Uhrzeit"></div>
+ </header>
+
+ <section class="card display">
+  <div id="time" role="timer">00:00:00.00</div>
+  <div id="lapnow">Runde 1</div>
+  <div class="bar" aria-hidden="true"><div id="fill"></div></div>
+ </section>
+
+ <div class="actions">
+  <button id="start" class="primary">Start</button>
+  <button id="lap" disabled>Runde</button>
+  <button id="reset" disabled>Zurücksetzen</button>
+ </div>
+
+  <div class="panels">
+  <section class="card" id="pAuto">
+   <h2>Auto-Runden</h2>
+   <div class="grid3">
+    <label>Intervall oder Rate<input type="text" id="autoVal" value="1000000000000000" inputmode="decimal" autocomplete="off" spellcheck="false"></label>
+    <label>Einheit
+     <select id="autoUnit"><option value="rate" selected>Runden/Sek.</option><option value="1">Sekunden</option><option value="60">Minuten</option><option value="3600">Stunden</option></select>
+    </label>
+    <label>Schnellwahl
+     <select id="preset"><option value="">Wählen …</option><option value="1s">1 s</option><option value="k">1 K/s</option><option value="qa">1 Qa/s</option><option value="us">10 µs</option><option value="ns">1 ns</option><option value="min">Minimum 10⁻³² s</option></select>
+    </label>
+    <label>Max. Runden (0 = ∞)<input type="number" id="autoMax" min="0" value="0" inputmode="numeric"></label>
+    <button id="autoBtn" type="button" class="span2">Auto an</button>
+   </div>
+   <input type="checkbox" id="autoOn" hidden>
+   <label class="switch"><input type="checkbox" id="beep"> Signalton</label>
+   <p class="hint" id="hint"></p>
+  </section>
+
+  <section class="card" id="pShift">
+   <h2>Auto-Zeitverstellung</h2>
+   <div class="grid3">
+    <label>Betrag (beliebig groß)<input type="text" id="shVal" value="1" inputmode="decimal" autocomplete="off" spellcheck="false"></label>
+    <label>Einheit
+     <select id="shUnit"><option value="1">Sekunden</option><option value="60">Minuten</option><option value="3600">Stunden</option><option value="86400">Tage</option><option value="31557600">Jahre</option></select>
+    </label>
+    <label>Richtung
+     <select id="shMode"><option value="add">Vorwärts (+)</option><option value="sub">Rückwärts (−)</option><option value="set">Setzen auf</option></select>
+    </label>
+    <label>Wiederholen alle … s<input type="text" id="shEvery" value="1" inputmode="decimal" autocomplete="off"></label>
+    <button id="shGo" type="button" class="span2 primary">Verstellen</button>
+   </div>
+   <label class="switch"><input type="checkbox" id="shAuto"> Automatisch wiederholen</label>
+   <p class="hint" id="shHint">Zahlen bis 10 000 Stellen, auch als 1e100.</p>
+  </section>
+ </div>
+
+ <section class="card">
+  <div class="lapshead"><h2>Runden</h2><button id="csv" disabled>CSV exportieren</button></div>
+  <div id="count"></div><p id="words"></p>
+  <p class="empty" id="empty">Noch keine Runden.</p>
+  <ul id="list" hidden></ul>
+ </section>
+
+ <footer><kbd>Leertaste</kbd> Start/Stopp · <kbd>L</kbd> Runde · <kbd>R</kbd> Zurücksetzen</footer>
+</main>
+
+<dialog id="pwDlg" aria-labelledby="pwTitle">
+ <form id="lock" autocomplete="off">
+  <h2 id="pwTitle">🔒 Passwort</h2>
+  <input type="password" id="pw" placeholder="Passwort eingeben" autocomplete="off" aria-label="Passwort">
+  <p id="lockMsg" class="hint"></p>
+  <div class="row2"><button type="button" id="pwCancel">Abbrechen</button><button class="primary" type="submit">Entsperren</button></div>
+ </form>
+</dialog>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const el = {};
+  ['time','lapnow','start','lap','reset','autoOn','autoVal','autoUnit','autoMax','beep','list','empty','csv','clock','count','words','hint','fill','preset','shVal','shUnit','shMode','shAuto','shEvery','shGo','shHint','autoBtn','pw','lock','lockMsg','pAuto','pShift']
+    .forEach(i => el[i] = $(i));
+
+  // Zeit wird in Quanten gerechnet: 1 Quant = 10^-32 s (BigInt, daher exakt und ohne Obergrenze)
+  const Q = 10n ** 32n, US = 10n ** 26n;
+  let running = false, t0 = 0, base = 0, raf = 0, dirty = false, lastBeep = 0, audio = null;
+  let blocks = [], active = null, total = 0n, lastT = 0n, minS = null, maxS = null, nextK = 0n, autoCount = 0n;
+  let ivQ = Q / 10n ** 15n, offQ = 0n, lastShift = 0, unlocked = false;
+  const PW_HASH = 'b18efec3c8ad41f67d752935dcc9569e28a502a28f3083e5d8c4e4584d582820';
+  const MAXD = 10000, CAP = 10n ** 10040n;
+
+  const pad = n => String(n).padStart(2, '0');
+  const sup = n => String(n).replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);
+  const fmtBig = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const W1 = ['', 'ein', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwölf', 'dreizehn', 'vierzehn', 'fünfzehn', 'sechzehn', 'siebzehn', 'achtzehn', 'neunzehn'];
+  const W10 = ['', '', 'zwanzig', 'dreißig', 'vierzig', 'fünfzig', 'sechzig', 'siebzig', 'achtzig', 'neunzig'];
+  const SC = ['', 'tausend', 'Million', 'Milliarde', 'Billion', 'Billiarde', 'Trillion', 'Trilliarde', 'Quadrillion', 'Quadrilliarde',
+    'Quintillion', 'Quintilliarde', 'Sextillion', 'Sextilliarde', 'Septillion', 'Septilliarde', 'Oktillion', 'Oktilliarde'];
+  const w3 = n => {
+    const h = Math.floor(n / 100), t = n % 100, u = t % 10;
+    return (h ? W1[h] + 'hundert' : '') + (t < 20 ? W1[t] : (u ? W1[u] + 'und' : '') + W10[Math.floor(t / 10)]);
+  };
+  function words(n) {                                   // Zahl in Worten (lange Skala: Milliarde, Billion, Billiarde, ...)
+    if (n === 0n) return 'null';
+    const s = n.toString(), g = Math.ceil(s.length / 3), out = [];
+    if (g > SC.length) return '';
+    for (let gi = g - 1; gi >= 0; gi--) {
+      const end = s.length - 3 * gi, v = parseInt(s.slice(Math.max(0, end - 3), end), 10);
+      if (!v) continue;
+      if (gi === 0) { const r = w3(v); out.push(r.endsWith('ein') ? r + 's' : r); }
+      else if (gi === 1) out.push(w3(v) + 'tausend');
+      else out.push(v === 1 ? 'eine ' + SC[gi] : w3(v) + ' ' + SC[gi] + (SC[gi].endsWith('e') ? 'n' : 'en'));
+    }
+    return out.join(' ');
+  }
+  function fmtQ(q, hours, dec) {
+    const sec = q / Q, fr = String(q % Q).padStart(32, '0').slice(0, dec);
+    return (hours ? (sec / 3600n).toString().padStart(2, '0') + ':' : '') + pad(Number((sec / 60n) % 60n)) + ':' + pad(Number(sec % 60n)) + (dec ? '.' + fr : '');
+  }
+  const qa = n => {
+    const s = n.toString(), e = s.length - 1, i = Math.floor(e / 3), nm = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No'][i];
+    if (!nm) return '';
+    const k = e - 3 * i + 1, fr = s.slice(k, k + 2).replace(/0+$/, '');
+    return s.slice(0, k) + (fr ? ',' + fr : '') + ' ' + nm;
+  };
+  const secStr = q => { const f = String(q % Q).padStart(32, '0').replace(/0+$/, ''); return (q / Q).toLocaleString('de-DE') + (f ? ',' + f : ''); };
+  const decFor = q => { for (let d = 2; d < 32; d++) if (q % 10n ** BigInt(32 - d) === 0n) return d; return 32; };
+  const curDec = () => el.autoOn.checked ? decFor(ivQ) : 2;
+  const elapsed = () => running ? base + (performance.now() - t0) : base;
+  const rawQ = () => BigInt(Math.floor(elapsed() * 1000)) * US;
+  const elapsedQ = () => rawQ() + offQ;
+  const maxLaps = () => { const n = Math.floor(Number(el.autoMax.value)); return Number.isFinite(n) && n > 0 ? BigInt(n) : 0n; };
+
+  function parseDec(str) {
+    const m = /^(\d*)(?:\.(\d*))?(?:e([+-]?\d+))?$/i.exec(str.trim().replace(',', '.'));
+    if (!m || !(m[1] || m[2]) || str.length > 10100) return null;
+    const f = m[2] || '';
+    return { digits: BigInt((m[1] || '') + f), ex: (m[3] ? parseInt(m[3], 10) : 0) - f.length };
+  }
+  const scaled = p => {                                   // Wert in Quanten (10^-32 s)
+    const e = Math.min(32 + p.ex, MAXD);
+    return e >= 0 ? p.digits * 10n ** BigInt(e) : p.digits / 10n ** BigInt(Math.min(-e, 300));
+  };
+  function readIv() {
+    const p = parseDec(el.autoVal.value);
+    let msg = '', ok = false;
+    if (p && p.digits > 0n) {
+      let v;
+      if (el.autoUnit.value === 'rate') {
+        const x = Math.max(-60, Math.min(60, p.ex));
+        v = x >= 0 ? Q / (p.digits * 10n ** BigInt(x)) : Q * 10n ** BigInt(-x) / p.digits;
+      } else v = scaled(p);
+      ok = true;
+      if (v < 1n) { v = 1n; msg = 'Auf das Minimum 10⁻³² s gesetzt. '; }
+      ivQ = el.autoUnit.value === 'rate' ? v : v * BigInt(el.autoUnit.value);
+    }
+    if (!ok) msg = 'Ungültige Eingabe, der letzte gültige Wert bleibt aktiv. ';
+    const rate = ivQ <= Q ? ` · ≈ ${qa(Q / ivQ) ? qa(Q / ivQ) + ' (' + fmtBig(Q / ivQ) + ')' : fmtBig(Q / ivQ)} Runden pro Sekunde` : '';
+    el.hint.textContent = `${msg}Intervall: ${secStr(ivQ)} s${rate}`;
+    if (running) resetAuto();
+  }
+  // Zeit verstellen: beliebig große Beträge (BigInt), Ergebnis nie unter 0
+  function shift(n) {
+    if (!unlocked) return;
+    const p = parseDec(el.shVal.value);
+    if (!p) { el.shHint.textContent = 'Ungültiger Betrag.'; return; }
+    const amt = scaled(p) * BigInt(el.shUnit.value) * (el.shMode.value === 'set' ? 1n : n), raw = rawQ(), cur = raw + offQ, mode = el.shMode.value;
+    let t = mode === 'set' ? amt : mode === 'add' ? cur + amt : cur - amt, note = 'Zeit verstellt.';
+    if (t < 0n) t = 0n;
+    if (t > CAP) { t = CAP; note = 'Obergrenze erreicht (10 000 Stellen).'; }
+    offQ = t - raw; lastT = t; resetAuto();
+    el.shHint.textContent = note;
+    if (!running) draw(elapsedQ());
+  }
+  function resetAuto() { active = null; nextK = elapsedQ() / ivQ + 1n; }
+
+  function beep() {
+    const now = performance.now();
+    if (!el.beep.checked || now - lastBeep < 120) return;
+    lastBeep = now;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.frequency.value = 880; g.gain.setValueAtTime(.15, audio.currentTime);
+      g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .15);
+      o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime + .15);
+    } catch (e) {}
+  }
+
+  const upd = s => { if (minS === null || s < minS) minS = s; if (maxS === null || s > maxS) maxS = s; };
+
+  // Auto-Runden liegen auf einem festen Raster und werden nicht einzeln gespeichert,
+  // sondern als Block (Start, Anzahl, Intervall). So gibt es keine Obergrenze.
+  function flush(eQ) {
+    if (!running || !el.autoOn.checked) return;
+    const k = eQ / ivQ;
+    if (k < nextK) return;
+    let delta = k - nextK + 1n, hit = false;
+    const max = maxLaps();
+    if (max > 0n && autoCount + delta >= max) { delta = max - autoCount; hit = true; }
+    if (delta > 0n) {
+      if (!active) {
+        active = { type: 'a', iv: ivQ, k0: nextK, count: 0n, no: total + 1n, prev: lastT, p: decFor(ivQ) };
+        blocks.push(active);
+        upd(nextK * ivQ - lastT);
+      }
+      active.count += delta; nextK += delta; total += delta; autoCount += delta;
+      lastT = (nextK - 1n) * ivQ;
+      if (active.count > 1n) upd(ivQ);
+      dirty = true; beep();
+    }
+    if (hit) { stop(); el.autoOn.checked = false; syncBtn(); }
+  }
+
+  function manual() {
+    if (!running) return;
+    const eQ = elapsedQ(); flush(eQ);
+    if (!running) return;
+    blocks.push({ type: 'm', t: eQ, no: total + 1n, prev: lastT, p: curDec() });
+    upd(eQ - lastT); active = null; total++; lastT = eQ; beep(); render();
+  }
+
+  const row = (no, t, s, p, auto, col) =>
+    `<li><span class="no" title="${no}">${fmtBig(no)}${auto ? '<i>auto</i>' : ''}</span>` +
+    `<span class="t ${col ? (s === minS ? 'best' : s === maxS ? 'worst' : '') : ''}">${fmtQ(s, false, p)}</span>` +
+    `<span class="tt">${fmtQ(t, true, p)}</span></li>`;
+
+  function render() {
+    dirty = false;
+    const has = total > 0n, col = total > 2n && minS !== maxS, rows = [];
+    el.empty.hidden = has; el.list.hidden = !has; el.csv.disabled = !has;
+    el.count.textContent = has ? fmtBig(total) : '';
+    el.words.textContent = has ? words(total) : '';
+    outer: for (let b = blocks.length - 1; b >= 0; b--) {
+      const B = blocks[b];
+      if (B.type === 'm') rows.push(row(B.no, B.t, B.t - B.prev, B.p, false, col));
+      else for (let i = B.count - 1n; i >= 0n; i--) {
+        const t = (B.k0 + i) * B.iv;
+        rows.push(row(B.no + i, t, i === 0n ? t - B.prev : B.iv, B.p, true, col));
+        if (rows.length >= 200) break;
+      }
+      if (rows.length >= 200) break outer;
+    }
+    const older = total - BigInt(rows.length);
+    if (older > 0n) rows.push(`<li class="more">… ${fmtBig(older)} ältere Runden</li>`);
+    el.list.innerHTML = rows.join('');
+  }
+
+  function draw(eQ) {
+    const d = Math.min(5, curDec()), txt = fmtQ(eQ, true, d);
+    el.time.textContent = txt;
+    el.time.style.fontSize = Math.max(11, Math.min(76, (el.time.parentElement.clientWidth - 28) / (0.62 * txt.length))) + 'px';
+    el.lapnow.textContent = `Runde ${fmtBig(total + 1n)} · ${fmtQ(eQ - lastT, false, d)}`;
+    let p = 0;
+    if (el.autoOn.checked && running) p = ivQ >= 5n * 10n ** 30n ? Number((eQ % ivQ) * 1000n / ivQ) / 1000 : 1;
+    el.fill.style.width = p * 100 + '%';
+  }
+
+  function tick() {
+    if (running && unlocked && el.shAuto.checked) {
+      const every = Math.max(16, (Number(String(el.shEvery.value).replace(',', '.')) || 1) * 1000), n = Math.min(1000, Math.floor((performance.now() - lastShift) / every));
+      if (n > 0) { lastShift += n * every; shift(BigInt(n)); }
+    }
+    const eQ = elapsedQ(); flush(eQ);
+    if (dirty) render();
+    draw(eQ);
+    if (running) raf = requestAnimationFrame(tick);
+  }
+
+  function begin() {
+    if (running) return;
+    running = true; t0 = performance.now(); lastShift = t0; resetAuto();
+    el.start.textContent = 'Stopp'; el.start.classList.add('run');
+    el.lap.disabled = false; el.reset.disabled = false;
+    try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch (e) {}
+    raf = requestAnimationFrame(tick);
+  }
+  function stop() {
+    if (!running) return;
+    base = elapsed(); running = false; cancelAnimationFrame(raf);
+    el.start.textContent = 'Weiter'; el.start.classList.remove('run');
+    el.lap.disabled = true;
+    if (dirty) render();
+    draw(elapsedQ());
+  }
+  function reset() {
+    running = false; cancelAnimationFrame(raf);
+    base = 0; offQ = 0n; blocks = []; active = null; total = 0n; lastT = 0n; minS = maxS = null; nextK = 0n; autoCount = 0n;
+    el.start.textContent = 'Start'; el.start.classList.remove('run');
+    el.lap.disabled = true; el.reset.disabled = true;
+    render(); draw(0n);
+  }
+  const toggle = () => running ? stop() : begin();
+
+  function exportCsv() {
+    const L = ['Nr;Typ;Rundenzeit;Gesamtzeit'], LIMIT = 200000;
+    let n = 0;
+    outer: for (const B of blocks) {
+      if (B.type === 'm') { L.push([B.no, 'manuell', fmtQ(B.t - B.prev, false, B.p), fmtQ(B.t, true, B.p)].join(';')); n++; }
+      else for (let i = 0n; i < B.count; i++) {
+        const t = (B.k0 + i) * B.iv;
+        L.push([B.no + i, 'auto', fmtQ(i === 0n ? t - B.prev : B.iv, false, B.p), fmtQ(t, true, B.p)].join(';'));
+        if (++n >= LIMIT) break outer;
+      }
+    }
+    if (BigInt(n) < total) L.push(`… ${total - BigInt(n)} weitere Runden nicht aufgelistet (Raster siehe Intervall)`);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff' + L.join('\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'runden.csv'; a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  // Bedienung
+  document.addEventListener('dblclick', e => { if (!e.target.closest('input,select,textarea')) e.preventDefault(); });
+  el.start.onclick = toggle; el.lap.onclick = manual; el.reset.onclick = reset; el.csv.onclick = exportCsv;
+  el.autoVal.addEventListener('input', readIv);
+  el.autoUnit.addEventListener('change', readIv);
+  el.autoOn.addEventListener('change', () => { syncBtn(); if (running) resetAuto(); if (!running) draw(elapsedQ()); });
+  const toggleAuto = () => { el.autoOn.checked = !el.autoOn.checked; el.autoOn.dispatchEvent(new Event('change')); };
+  el.autoBtn.onclick = () => unlocked ? toggleAuto() : ask(toggleAuto);
+  function syncBtn() {
+    const on = el.autoOn.checked;
+    el.autoBtn.textContent = on ? 'Auto aus' : 'Auto an';
+    el.autoBtn.classList.toggle('on', on);
+  }
+  // Sperre: Auto an und Verstellen fragen bei jedem Laden der Seite einmal nach dem Passwort,
+  // und zwar erst, wenn man darauf drückt (nur Abfrage im Browser, kein echter Schutz)
+  const dlg = $('pwDlg');
+  let pending = null;
+  function ask(fn) { pending = fn; el.lockMsg.textContent = ''; el.pw.value = ''; dlg.showModal(); el.pw.focus(); }
+  const setLocked = lock => { unlocked = !lock; };
+  async function sha256(t) {
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+    return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+  }
+  $('pwCancel').onclick = () => { pending = null; dlg.close(); };
+  dlg.addEventListener('click', e => { if (e.target === dlg) { pending = null; dlg.close(); } });
+  el.lock.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!(window.crypto && crypto.subtle)) { el.lockMsg.textContent = 'Die Prüfung braucht https (z. B. GitHub Pages) oder localhost.'; return; }
+    if (await sha256('rundenuhr|' + el.pw.value) === PW_HASH) {
+      unlocked = true; dlg.close();
+      const fn = pending; pending = null; if (fn) fn();
+    } else { el.lockMsg.textContent = 'Falsches Passwort.'; el.pw.value = ''; el.pw.focus(); }
+  });
+  el.shAuto.addEventListener('change', () => {
+    if (!unlocked && el.shAuto.checked) { el.shAuto.checked = false; ask(() => { el.shAuto.checked = true; lastShift = performance.now(); }); return; }
+    lastShift = performance.now();
+  });
+  el.shGo.onclick = () => unlocked ? shift(1n) : ask(() => shift(1n));
+  const PRE = { '1s': ['1', '1'], k: ['1000', 'rate'], qa: ['1000000000000000', 'rate'], us: ['0.00001', '1'], ns: ['0.000000001', '1'], min: ['0.00000000000000000000000000000001', '1'] };
+  el.preset.addEventListener('change', () => {
+    const q = PRE[el.preset.value];
+    if (q) { el.autoVal.value = q[0]; el.autoUnit.value = q[1]; readIv(); }
+    el.preset.value = '';
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input,select')) return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    else if (e.key.toLowerCase() === 'l') manual();
+    else if (e.key.toLowerCase() === 'r' && !el.reset.disabled) reset();
+  });
+
+  const clock = () => el.clock.textContent = new Date().toLocaleTimeString('de-DE');
+  setInterval(clock, 250); clock();
+  readIv(); render(); draw(0n); setLocked(true); syncBtn();
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
